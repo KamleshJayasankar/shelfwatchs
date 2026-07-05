@@ -1,0 +1,34 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+}
+
+button,
+input,
+select {
+  font: inherit;
+}
+
+.row-expired {
+  background: #fff1f2;
+  border-left: 4px solid #e11d48;
+}
+
+.row-expiring7 {
+  background: #fff7ed;
+  border-left: 4px solid #f97316;
+}
+
+.row-expiring30 {
+  background: #fefce8;
+  border-left: 4px solid #eab308;
+}
+
+.row-fresh {
+  background: #f0fdf4;
+  border-left: 4px solid #22c55e;
+}
