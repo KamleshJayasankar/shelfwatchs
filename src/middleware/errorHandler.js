@@ -5,7 +5,7 @@ export const notFound = (req, res, next) => {
 };
 
 export const errorHandler = (err, req, res, next) => {
-  const statusCode = err.statusCode || 500;
+  const statusCode = err.statusCode || (err.name === 'MulterError' ? 400 : 500);
   const message = err.code === 11000 ? 'Duplicate value already exists' : err.message;
 
   res.status(statusCode).json({

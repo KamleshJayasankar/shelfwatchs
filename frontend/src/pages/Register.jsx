@@ -7,7 +7,7 @@ import { useAuth } from '../context/AuthContext';
 const Register = () => {
   const navigate = useNavigate();
   const { register } = useAuth();
-  const [form, setForm] = useState({ name: '', email: '', password: '', role: 'staff' });
+  const [form, setForm] = useState({ name: '', email: '', password: '' });
   const [isLoading, setIsLoading] = useState(false);
 
   const updateField = (event) => {
@@ -30,7 +30,7 @@ const Register = () => {
   };
 
   return (
-    <AuthLayout title="Create account" subtitle="Add staff or admin access for ShelfWatch.">
+    <AuthLayout title="Create account" subtitle="Create your shop account. You will be the shop admin.">
       <form onSubmit={handleSubmit} className="space-y-4">
         <label className="block text-sm font-medium text-slate-700">
           Name
@@ -43,13 +43,6 @@ const Register = () => {
         <label className="block text-sm font-medium text-slate-700">
           Password
           <input name="password" type="password" minLength="6" value={form.password} onChange={updateField} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2" required />
-        </label>
-        <label className="block text-sm font-medium text-slate-700">
-          Role
-          <select name="role" value={form.role} onChange={updateField} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2">
-            <option value="staff">Staff</option>
-            <option value="admin">Admin</option>
-          </select>
         </label>
         <button disabled={isLoading} className="w-full rounded-md bg-shelf-mint px-4 py-2.5 font-semibold text-white disabled:opacity-60">
           {isLoading ? 'Creating...' : 'Create account'}

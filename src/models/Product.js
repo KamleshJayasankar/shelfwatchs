@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { CATEGORIES } from '../utils/categories.js';
 
 const productSchema = new mongoose.Schema(
   {
@@ -9,7 +10,7 @@ const productSchema = new mongoose.Schema(
     },
     category: {
       type: String,
-      enum: ['Biscuits', 'Chocolate', 'Chips', 'Other'],
+      enum: CATEGORIES,
       required: true
     },
     quantity: {
@@ -29,6 +30,12 @@ const productSchema = new mongoose.Schema(
     expiryDate: {
       type: Date,
       required: true
+    },
+    shopId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: true,
+      index: true
     },
     addedBy: {
       type: mongoose.Schema.Types.ObjectId,

@@ -1,6 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import toast from 'react-hot-toast';
+import { scanProductImage } from '../api/ai';
 
-const categories = ['Biscuits', 'Chocolate', 'Chips', 'Other'];
+const categories = ['Biscuits', 'Chocolate', 'Chips', 'Dairy', 'Beverages', 'Staples', 'Other'];
 
 const emptyForm = {
   name: '',
@@ -15,6 +17,9 @@ const toDateInput = (value) => (value ? new Date(value).toISOString().slice(0, 1
 
 const ProductForm = ({ product, onCancel, onSubmit, isSaving }) => {
   const [form, setForm] = useState(emptyForm);
+  const [isScanning, setIsScanning] = useState(false);
+  const [scanInfo, setScanInfo] = useState(null);
+  const fileInputRef = useRef(null);
 
   useEffect(() => {
     if (product) {
@@ -34,6 +39,32 @@ const ProductForm = ({ product, onCancel, onSubmit, isSaving }) => {
   const updateField = (event) => {
     const { name, value } = event.target;
     setForm((current) => ({ ...current, [name]: value }));
+  };
+
+  const handleScan = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+
+    setIsScanning(true);
+    setScanInfo(null);
+    try {
+      const { data } = await scanProductImage(file);
+      const today = new Date().toISOString().slice(0, 10);
+      setForm((current) => ({
+        ...current,
+        name: data.name || current.name,
+        category: data.category || current.category,
+        expiryDate: data.expiryDate || current.expiryDate,
+        purchaseDate: current.purchaseDate || today
+      }));
+      setScanInfo(data);
+      toast.success(data.expiryDate ? 'Details read from photo - please verify' : 'Photo read, but no expiry date found');
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Could not scan the photo');
+    } finally {
+      setIsScanning(false);
+    }
   };
 
   const handleSubmit = (event) => {
@@ -57,6 +88,27 @@ const ProductForm = ({ product, onCancel, onSubmit, isSaving }) => {
             Close
           </button>
         </div>
+        {!product && (
+          <div className="mb-4 rounded-md border border-dashed border-slate-300 bg-slate-50 p-3">
+            <input ref={fileInputRef} type="file" accept="image/*" capture="environment" onChange={handleScan} className="hidden" />
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isScanning}
+              className="rounded-md bg-slate-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+            >
+              {isScanning ? 'Reading photo with Gemini...' : 'Scan product with AI'}
+            </button>
+            <p className="mt-2 text-xs text-slate-600">Take a photo of the pack showing the expiry date. Fields fill automatically.</p>
+            {scanInfo && (
+              <p className={`mt-2 text-xs font-medium ${scanInfo.confidence === 'high' ? 'text-green-700' : 'text-orange-700'}`}>
+                Confidence: {scanInfo.confidence}
+                {scanInfo.mrp ? ` · MRP ₹${scanInfo.mrp}` : ''}
+                {scanInfo.notes ? ` · ${scanInfo.notes}` : ''}
+              </p>
+            )}
+          </div>
+        )}
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="text-sm font-medium text-slate-700">
             Name
