@@ -9,14 +9,17 @@ const createTransporter = () =>
     }
   });
 
-export const sendExpirySummaryEmail = async ({ expiredProducts, expiringProducts }) => {
-  if (!process.env.EMAIL_USER || !process.env.EMAIL_APP_PASSWORD || !process.env.OWNER_EMAIL) {
-    console.warn('Expiry email skipped because email environment variables are missing');
-    return;
+const escapeHtml = (value) =>
+  String(value).replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
+
+export const sendExpirySummaryEmail = async ({ to, expiredProducts, expiringProducts }) => {
+  if (!process.env.EMAIL_USER || !process.env.EMAIL_APP_PASSWORD || !to) {
+    console.warn('Expiry email skipped because email settings or recipient are missing');
+    return false;
   }
 
   if (expiredProducts.length === 0 && expiringProducts.length === 0) {
-    return;
+    return false;
   }
 
   const transporter = createTransporter();
@@ -24,15 +27,15 @@ export const sendExpirySummaryEmail = async ({ expiredProducts, expiringProducts
     products
       .map(
         (product) =>
-          `<li><strong>${product.name}</strong> (${product.category}) - Qty: ${product.quantity}, Expiry: ${new Date(
+          `<li><strong>${escapeHtml(product.name)}</strong> (${escapeHtml(product.category)}) - Qty: ${product.quantity}, Expiry: ${new Date(
             product.expiryDate
-          ).toLocaleDateString()}</li>`
+          ).toLocaleDateString('en-IN')}</li>`
       )
       .join('');
 
   await transporter.sendMail({
     from: `"ShelfWatch" <${process.env.EMAIL_USER}>`,
-    to: process.env.OWNER_EMAIL,
+    to,
     subject: 'ShelfWatch daily expiry alert',
     html: `
       <h2>ShelfWatch daily expiry summary</h2>
@@ -42,4 +45,6 @@ export const sendExpirySummaryEmail = async ({ expiredProducts, expiringProducts
       <ul>${formatRows(expiringProducts) || '<li>None</li>'}</ul>
     `
   });
+
+  return true;
 };

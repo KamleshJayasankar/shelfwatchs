@@ -3,8 +3,7 @@ import { body } from 'express-validator';
 export const registerValidator = [
   body('name').trim().notEmpty().withMessage('Name is required'),
   body('email').isEmail().withMessage('A valid email is required').normalizeEmail(),
-  body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
-  body('role').optional().isIn(['admin', 'staff']).withMessage('Role must be admin or staff')
+  body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters')
 ];
 
 export const loginValidator = [

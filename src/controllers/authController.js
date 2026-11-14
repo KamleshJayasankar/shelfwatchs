@@ -5,22 +5,44 @@ const serializeUser = (user) => ({
   id: user._id,
   name: user.name,
   email: user.email,
-  role: user.role
+  role: user.role,
+  shopId: user.shopId
 });
 
+// Public sign-up always creates a NEW shop and its owner (admin).
+// A client-supplied role is ignored, so nobody can self-register into another shop or escalate.
 export const register = async (req, res, next) => {
   try {
-    const { name, email, password, role } = req.body;
+    const { name, email, password } = req.body;
     const existingUser = await User.findOne({ email });
 
     if (existingUser) {
       return res.status(409).json({ message: 'Email is already registered' });
     }
 
-    const user = await User.create({ name, email, password, role });
-    const token = signToken(user);
+    const user = new User({ name, email, password, role: 'admin' });
+    user.shopId = user._id;
+    await user.save();
 
+    const token = signToken(user);
     res.status(201).json({ token, user: serializeUser(user) });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Admin-only: add a staff member to the admin's own shop.
+export const createStaff = async (req, res, next) => {
+  try {
+    const { name, email, password } = req.body;
+    const existingUser = await User.findOne({ email });
+
+    if (existingUser) {
+      return res.status(409).json({ message: 'Email is already registered' });
+    }
+
+    const staff = await User.create({ name, email, password, role: 'staff', shopId: req.user.shopId });
+    res.status(201).json({ user: serializeUser(staff) });
   } catch (error) {
     next(error);
   }

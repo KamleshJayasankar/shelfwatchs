@@ -1,6 +1,8 @@
 import Product from '../models/Product.js';
 import { addDays, startOfToday } from '../utils/dateRanges.js';
 
+const escapeRegex = (value) => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
 const getStatusFilter = (status) => {
   const today = startOfToday();
   const in7Days = addDays(today, 7);
@@ -22,15 +24,19 @@ const getStatusFilter = (status) => {
   }
 };
 
+// Never let a client set ownership fields.
+const sanitizeBody = ({ shopId, addedBy, _id, ...data }) => data;
+
 export const getProducts = async (req, res, next) => {
   try {
     const { category, status, search, sort = 'asc' } = req.query;
     const filter = {
+      shopId: req.user.shopId,
       ...getStatusFilter(status)
     };
 
-    if (category) filter.category = category;
-    if (search) filter.name = { $regex: search, $options: 'i' };
+    if (category) filter.category = String(category);
+    if (search) filter.name = { $regex: escapeRegex(search), $options: 'i' };
 
     const products = await Product.find(filter)
       .populate('addedBy', 'name email role')
@@ -45,7 +51,8 @@ export const getProducts = async (req, res, next) => {
 export const createProduct = async (req, res, next) => {
   try {
     const product = await Product.create({
-      ...req.body,
+      ...sanitizeBody(req.body),
+      shopId: req.user.shopId,
       addedBy: req.user._id
     });
 
@@ -58,10 +65,11 @@ export const createProduct = async (req, res, next) => {
 
 export const updateProduct = async (req, res, next) => {
   try {
-    const product = await Product.findByIdAndUpdate(req.params.id, req.body, {
-      new: true,
-      runValidators: true
-    }).populate('addedBy', 'name email role');
+    const product = await Product.findOneAndUpdate(
+      { _id: req.params.id, shopId: req.user.shopId },
+      sanitizeBody(req.body),
+      { new: true, runValidators: true }
+    ).populate('addedBy', 'name email role');
 
     if (!product) {
       return res.status(404).json({ message: 'Product not found' });
@@ -75,7 +83,7 @@ export const updateProduct = async (req, res, next) => {
 
 export const deleteProduct = async (req, res, next) => {
   try {
-    const product = await Product.findByIdAndDelete(req.params.id);
+    const product = await Product.findOneAndDelete({ _id: req.params.id, shopId: req.user.shopId });
 
     if (!product) {
       return res.status(404).json({ message: 'Product not found' });
@@ -92,19 +100,32 @@ export const getProductStats = async (req, res, next) => {
     const today = startOfToday();
     const in7Days = addDays(today, 7);
     const in30Days = addDays(today, 30);
+    const shopId = req.user.shopId;
 
-    const [expired, expiring7Days, expiring30Days, fresh] = await Promise.all([
-      Product.countDocuments({ expiryDate: { $lt: today } }),
-      Product.countDocuments({ expiryDate: { $gte: today, $lte: in7Days } }),
-      Product.countDocuments({ expiryDate: { $gt: in7Days, $lte: in30Days } }),
-      Product.countDocuments({ expiryDate: { $gt: in30Days } })
+    const [expired, expiring7Days, expiring30Days, fresh, atRisk] = await Promise.all([
+      Product.countDocuments({ shopId, expiryDate: { $lt: today } }),
+      Product.countDocuments({ shopId, expiryDate: { $gte: today, $lte: in7Days } }),
+      Product.countDocuments({ shopId, expiryDate: { $gt: in7Days, $lte: in30Days } }),
+      Product.countDocuments({ shopId, expiryDate: { $gt: in30Days } }),
+      Product.find({ shopId, expiryDate: { $lte: in7Days } }).select('quantity unitPrice expiryDate')
     ]);
+
+    // Stock value (qty x unit price) that is already expired or will expire within 7 days.
+    const expiredValue = atRisk
+      .filter((item) => item.expiryDate < today)
+      .reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
+    const expiring7DaysValue = atRisk
+      .filter((item) => item.expiryDate >= today)
+      .reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
 
     res.json({
       expired,
       expiring7Days,
       expiring30Days,
-      fresh
+      fresh,
+      expiredValue,
+      expiring7DaysValue,
+      valueAtRisk: expiredValue + expiring7DaysValue
     });
   } catch (error) {
     next(error);

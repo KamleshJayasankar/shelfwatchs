@@ -2,12 +2,14 @@ import 'dotenv/config';
 import app from './app.js';
 import { connectDB } from './config/db.js';
 import { startExpiryCron } from './jobs/expiryCron.js';
+import { migrateLegacyData } from './utils/migrateLegacy.js';
 
 const PORT = process.env.PORT || 8080;
 
 const startServer = async () => {
   try {
     await connectDB();
+    await migrateLegacyData();
     app.listen(PORT, () => {
       console.log(`ShelfWatch API running on port ${PORT}`);
     });
